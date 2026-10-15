@@ -1,0 +1,611 @@
+[
+  {
+    "id": "ref-e98afeb238",
+    "status": "auto",
+    "input": "Research Commentary: The New Organizing Logic of Digital Innovation: An Agenda for Information Systems Research",
+    "title_search": {
+      "outcome": "match",
+      "reasons": [],
+      "candidates": [
+        {
+          "title": "Research Commentary —The New Organizing Logic of Digital Innovation: An Agenda for Information Systems Research",
+          "year": 2010,
+          "doi": "10.1287/isre.1100.0322",
+          "title_similarity": 1.0
+        },
+        {
+          "title": "The new management logic of digital megaprojects: An agenda for information systems research",
+          "year": 2025,
+          "doi": "10.1016/j.jsis.2025.101911",
+          "title_similarity": 0.74
+        },
+        {
+          "title": "Interoperability in the era of digital innovation: An information systems research agenda",
+          "year": 2022,
+          "doi": "10.1177/02683962211064304",
+          "title_similarity": 0.67
+        },
+        {
+          "title": "Research Commentary—Digital Natives and Ubiquitous Information Systems",
+          "year": 2010,
+          "doi": "10.1287/isre.1100.0324",
+          "title_similarity": 0.64
+        },
+        {
+          "title": "Research Commentary: The Organizing Logic for an Enterprise's IT Activities in the Digital Era—A Prognosis of Practice and a Call for Research",
+          "year": 2000,
+          "doi": "10.1287/isre.11.2.105.11780",
+          "title_similarity": 0.6
+        }
+      ]
+    },
+    "type": "journal-article",
+    "title": "Research Commentary —The New Organizing Logic of Digital Innovation: An Agenda for Information Systems Research",
+    "original_title": "Research Commentary —The New Organizing Logic of Digital Innovation: An Agenda for Information Systems Research",
+    "authors": [
+      {
+        "given": "Youngjin",
+        "family": "Yoo"
+      },
+      {
+        "given": "Ola",
+        "family": "Henfridsson"
+      },
+      {
+        "given": "Kalle",
+        "family": "Lyytinen"
+      }
+    ],
+    "year": 2010,
+    "journal": "Information Systems Research",
+    "volume": "21",
+    "issue": "4",
+    "pages": "724-735",
+    "book_title": "not stated",
+    "editors": "not stated",
+    "publisher": "Institute for Operations Research and the Management Sciences (INFORMS)",
+    "place": "not stated",
+    "report_number": "not stated",
+    "site_name": "not stated",
+    "doi": "10.1287/isre.1100.0322",
+    "url": "not stated",
+    "cross_check": {
+      "sources": {
+        "crossref": {
+          "title": "Research Commentary —The New Organizing Logic of Digital Innovation: An Agenda for Information Systems Research",
+          "first_author": "Yoo",
+          "year": 2010
+        },
+        "openalex": {
+          "title": "Research Commentary —The New Organizing Logic of Digital Innovation: An Agenda for Information Systems Research",
+          "first_author": "Youngjin Yoo",
+          "year": 2010
+        },
+        "semantic_scholar": {
+          "title": "Research Commentary - The New Organizing Logic of Digital Innovation: An Agenda for Information Systems Research",
+          "first_author": "Youngjin Yoo",
+          "year": 2010
+        }
+      },
+      "fields": {
+        "title": {
+          "openalex": {
+            "value": "Research Commentary —The New Organizing Logic of Digital Innovation: An Agenda for Information Systems Research",
+            "score": 1.0,
+            "agree": true
+          },
+          "semantic_scholar": {
+            "value": "Research Commentary - The New Organizing Logic of Digital Innovation: An Agenda for Information Systems Research",
+            "score": 1.0,
+            "agree": true
+          }
+        },
+        "first_author": {
+          "openalex": {
+            "value": "Youngjin Yoo",
+            "agree": true
+          },
+          "semantic_scholar": {
+            "value": "Youngjin Yoo",
+            "agree": true
+          }
+        },
+        "year": {
+          "openalex": {
+            "value": 2010,
+            "agree": true
+          },
+          "semantic_scholar": {
+            "value": 2010,
+            "agree": true
+          }
+        }
+      },
+      "agree": [
+        "title",
+        "first_author",
+        "year"
+      ],
+      "disagree": [],
+      "unchecked": []
+    },
+    "verification": {
+      "status": "check",
+      "warnings": [
+        "Title casing is uncertain for “The”: compare the APA title with the original title."
+      ]
+    },
+    "search_links": {
+      "google_scholar": "https://scholar.google.com/scholar?q=Research+Commentary+%E2%80%94The+New+Organizing+Logic+of+Digital+Innovation%3A+An+Agenda+for+Information+Systems+Research+Yoo",
+      "google": "https://www.google.com/search?q=Research+Commentary+%E2%80%94The+New+Organizing+Logic+of+Digital+Innovation%3A+An+Agenda+for+Information+Systems+Research+Yoo"
+    }
+  },
+  {
+    "id": "ref-d17a3c8923",
+    "status": "auto",
+    "input": "10.2307/249008",
+    "type": "journal-article",
+    "title": "Perceived Usefulness, Perceived Ease of Use, and User Acceptance of Information Technology",
+    "original_title": "Perceived Usefulness, Perceived Ease of Use, and User Acceptance of Information Technology",
+    "authors": [
+      {
+        "given": "Fred D.",
+        "family": "Davis"
+      }
+    ],
+    "year": 1989,
+    "journal": "MIS Quarterly",
+    "volume": "13",
+    "issue": "3",
+    "pages": "319-340",
+    "book_title": "not stated",
+    "editors": "not stated",
+    "publisher": "MIS Quarterly",
+    "place": "not stated",
+    "report_number": "not stated",
+    "site_name": "not stated",
+    "doi": "10.2307/249008",
+    "url": "not stated",
+    "cross_check": {
+      "sources": {
+        "crossref": {
+          "title": "Perceived Usefulness, Perceived Ease of Use, and User Acceptance of Information Technology",
+          "first_author": "Davis",
+          "year": 1989
+        },
+        "openalex": {
+          "title": "Perceived Usefulness, Perceived Ease of Use, and User Acceptance of Information Technology",
+          "first_author": "Fred D. Davis",
+          "year": 1989
+        },
+        "semantic_scholar": {
+          "error": "Semantic Scholar is rate-limiting requests. Try again in a minute."
+        }
+      },
+      "fields": {
+        "title": {
+          "openalex": {
+            "value": "Perceived Usefulness, Perceived Ease of Use, and User Acceptance of Information Technology",
+            "score": 1.0,
+            "agree": true
+          }
+        },
+        "first_author": {
+          "openalex": {
+            "value": "Fred D. Davis",
+            "agree": true
+          }
+        },
+        "year": {
+          "openalex": {
+            "value": 1989,
+            "agree": true
+          }
+        }
+      },
+      "agree": [
+        "title",
+        "first_author",
+        "year"
+      ],
+      "disagree": [],
+      "unchecked": []
+    },
+    "verification": {
+      "status": "verified",
+      "warnings": []
+    },
+    "search_links": {
+      "google_scholar": "https://scholar.google.com/scholar?q=Perceived+Usefulness%2C+Perceived+Ease+of+Use%2C+and+User+Acceptance+of+Information+Technology+Davis",
+      "google": "https://www.google.com/search?q=Perceived+Usefulness%2C+Perceived+Ease+of+Use%2C+and+User+Acceptance+of+Information+Technology+Davis"
+    }
+  },
+  {
+    "id": "ref-805a54df75",
+    "status": "auto",
+    "input": "Predicting User Intentions to Refuse Mobile Apps: A Behavioral Economics Perspective",
+    "title_search": {
+      "outcome": "not_found",
+      "reasons": [
+        "No Crossref title is close enough to this one (best similarity 0.59, needs 0.75 to be worth checking).",
+        "Closest but below threshold, not accepted: “Guests’ Intentions to Use Mobile Apps Questionnaire” (2016), DOI 10.1037/t59382-000, similarity 0.59."
+      ],
+      "candidates": [
+        {
+          "title": "Guests’ Intentions to Use Mobile Apps Questionnaire",
+          "year": 2016,
+          "doi": "10.1037/t59382-000",
+          "title_similarity": 0.59
+        },
+        {
+          "title": "PREDICTING USER INTENTIONS FOR MOBILE LEARNING IN A PROJECT-BASED ENVIRONMENT",
+          "year": 2013,
+          "doi": "10.7903/ijecs.1063",
+          "title_similarity": 0.59
+        },
+        {
+          "title": "Designing User Experience for Mobile Apps: Long-Term Product Owner Perspective",
+          "year": 2013,
+          "doi": "10.1109/apsec.2013.77",
+          "title_similarity": 0.57
+        },
+        {
+          "title": "Modeling Consumer Purchase Intentions in Mobile Shopping Scenarios from a Social Presence Perspective",
+          "year": 2022,
+          "doi": "10.11648/j.pbs.20221103.12",
+          "title_similarity": 0.57
+        },
+        {
+          "title": "A Model for Predicting Continuance Intentions of mHealth with Community Health Workers in Malawi: From User Expectations Perspective",
+          "year": 2026,
+          "doi": "10.2139/ssrn.6304559",
+          "title_similarity": 0.5
+        }
+      ]
+    },
+    "type": "journal-article",
+    "title": "not stated",
+    "authors": "not stated",
+    "year": "not stated",
+    "journal": "not stated",
+    "volume": "not stated",
+    "issue": "not stated",
+    "pages": "not stated",
+    "book_title": "not stated",
+    "editors": "not stated",
+    "publisher": "not stated",
+    "place": "not stated",
+    "report_number": "not stated",
+    "site_name": "not stated",
+    "doi": "not stated",
+    "url": "not stated",
+    "reference_text": "not stated",
+    "lookup_error": "No Crossref title is close enough to this one (best similarity 0.59, needs 0.75 to be worth checking). Closest but below threshold, not accepted: “Guests’ Intentions to Use Mobile Apps Questionnaire” (2016), DOI 10.1037/t59382-000, similarity 0.59.",
+    "verification": {
+      "status": "not_found",
+      "warnings": [
+        "No match found. No Crossref title is close enough to this one (best similarity 0.59, needs 0.75 to be worth checking). Closest but below threshold, not accepted: “Guests’ Intentions to Use Mobile Apps Questionnaire” (2016), DOI 10.1037/t59382-000, similarity 0.59."
+      ]
+    },
+    "search_links": {
+      "google_scholar": "https://scholar.google.com/scholar?q=Predicting+User+Intentions+to+Refuse+Mobile+Apps%3A+A+Behavioral+Economics+Perspective",
+      "google": "https://www.google.com/search?q=Predicting+User+Intentions+to+Refuse+Mobile+Apps%3A+A+Behavioral+Economics+Perspective"
+    }
+  },
+  {
+    "id": "ref-f201cbc293",
+    "status": "auto",
+    "input": "The Dark Side of Information Technology",
+    "title_search": {
+      "outcome": "match",
+      "reasons": [],
+      "candidates": [
+        {
+          "title": "The dark side of information technology use",
+          "year": 2013,
+          "doi": "10.1111/isj.12015",
+          "title_similarity": 0.95
+        },
+        {
+          "title": "The Dark Side Of Information Technology For Unions",
+          "year": 2005,
+          "doi": "10.1111/j.1743-4580.2005.00025.x",
+          "title_similarity": 0.88
+        },
+        {
+          "title": "The Dark Side of Technology",
+          "year": 2017,
+          "doi": "10.1093/acprof:oso/9780198790532.001.0001",
+          "title_similarity": 0.82
+        },
+        {
+          "title": "Reflecting on the “Dark Side” of Information Technology Use",
+          "year": 2014,
+          "doi": "10.17705/1cais.03505",
+          "title_similarity": 0.81
+        },
+        {
+          "title": "The dark side of information systems use: Three essays",
+          "year": "not stated",
+          "doi": "10.31274/td-20240329-734",
+          "title_similarity": 0.72
+        }
+      ]
+    },
+    "type": "journal-article",
+    "title": "The dark side of information technology use",
+    "original_title": "The dark side of information technology use",
+    "authors": [
+      {
+        "given": "Monideepa",
+        "family": "Tarafdar"
+      },
+      {
+        "given": "Ashish",
+        "family": "Gupta"
+      },
+      {
+        "given": "Ofir",
+        "family": "Turel"
+      }
+    ],
+    "year": 2013,
+    "journal": "Information Systems Journal",
+    "volume": "23",
+    "issue": "3",
+    "pages": "269-275",
+    "book_title": "not stated",
+    "editors": "not stated",
+    "publisher": "Wiley",
+    "place": "not stated",
+    "report_number": "not stated",
+    "site_name": "not stated",
+    "doi": "10.1111/isj.12015",
+    "url": "not stated",
+    "cross_check": {
+      "sources": {
+        "crossref": {
+          "title": "The dark side of information technology use",
+          "first_author": "Tarafdar",
+          "year": 2013
+        },
+        "openalex": {
+          "title": "The dark side of information technology use",
+          "first_author": "Monideepa Tarafdar",
+          "year": 2013
+        },
+        "semantic_scholar": {
+          "title": "The dark side of information technology use",
+          "first_author": "Monideepa Tarafdar",
+          "year": 2013
+        }
+      },
+      "fields": {
+        "title": {
+          "openalex": {
+            "value": "The dark side of information technology use",
+            "score": 1.0,
+            "agree": true
+          },
+          "semantic_scholar": {
+            "value": "The dark side of information technology use",
+            "score": 1.0,
+            "agree": true
+          }
+        },
+        "first_author": {
+          "openalex": {
+            "value": "Monideepa Tarafdar",
+            "agree": true
+          },
+          "semantic_scholar": {
+            "value": "Monideepa Tarafdar",
+            "agree": true
+          }
+        },
+        "year": {
+          "openalex": {
+            "value": 2013,
+            "agree": true
+          },
+          "semantic_scholar": {
+            "value": 2013,
+            "agree": true
+          }
+        }
+      },
+      "agree": [
+        "title",
+        "first_author",
+        "year"
+      ],
+      "disagree": [],
+      "unchecked": []
+    },
+    "verification": {
+      "status": "verified",
+      "warnings": []
+    },
+    "search_links": {
+      "google_scholar": "https://scholar.google.com/scholar?q=The+dark+side+of+information+technology+use+Tarafdar",
+      "google": "https://www.google.com/search?q=The+dark+side+of+information+technology+use+Tarafdar"
+    }
+  },
+  {
+    "id": "ref-e3af7fa601",
+    "status": "auto",
+    "input": "An Information Systems Design Theory for Information Quality Risk Management",
+    "title_search": {
+      "outcome": "not_found",
+      "reasons": [
+        "No Crossref title is close enough to this one (best similarity 0.56, needs 0.75 to be worth checking).",
+        "Closest but below threshold, not accepted: “Information Processing Design Choices, Strategy, and Risk Management Performance” (2006), DOI 10.2753/mis0742-1222230110, similarity 0.56."
+      ],
+      "candidates": [
+        {
+          "title": "Information Processing Design Choices, Strategy, and Risk Management Performance",
+          "year": 2006,
+          "doi": "10.2753/mis0742-1222230110",
+          "title_similarity": 0.56
+        },
+        {
+          "title": "Information security management systems",
+          "year": "not stated",
+          "doi": "10.3403/30354572",
+          "title_similarity": 0.5
+        },
+        {
+          "title": "Information security management systems",
+          "year": "not stated",
+          "doi": "10.3403/30125022",
+          "title_similarity": 0.5
+        },
+        {
+          "title": "Information security management systems",
+          "year": "not stated",
+          "doi": "10.3403/30125022u",
+          "title_similarity": 0.5
+        },
+        {
+          "title": "A Design Language for Knowledge Management Systems (KMS)",
+          "year": 2010,
+          "doi": "10.1007/978-1-4419-5653-8_12",
+          "title_similarity": 0.45
+        }
+      ]
+    },
+    "type": "journal-article",
+    "title": "not stated",
+    "authors": "not stated",
+    "year": "not stated",
+    "journal": "not stated",
+    "volume": "not stated",
+    "issue": "not stated",
+    "pages": "not stated",
+    "book_title": "not stated",
+    "editors": "not stated",
+    "publisher": "not stated",
+    "place": "not stated",
+    "report_number": "not stated",
+    "site_name": "not stated",
+    "doi": "not stated",
+    "url": "not stated",
+    "reference_text": "not stated",
+    "lookup_error": "No Crossref title is close enough to this one (best similarity 0.56, needs 0.75 to be worth checking). Closest but below threshold, not accepted: “Information Processing Design Choices, Strategy, and Risk Management Performance” (2006), DOI 10.2753/mis0742-1222230110, similarity 0.56.",
+    "verification": {
+      "status": "not_found",
+      "warnings": [
+        "No match found. No Crossref title is close enough to this one (best similarity 0.56, needs 0.75 to be worth checking). Closest but below threshold, not accepted: “Information Processing Design Choices, Strategy, and Risk Management Performance” (2006), DOI 10.2753/mis0742-1222230110, similarity 0.56."
+      ]
+    },
+    "search_links": {
+      "google_scholar": "https://scholar.google.com/scholar?q=An+Information+Systems+Design+Theory+for+Information+Quality+Risk+Management",
+      "google": "https://www.google.com/search?q=An+Information+Systems+Design+Theory+for+Information+Quality+Risk+Management"
+    }
+  },
+  {
+    "id": "ref-87ba845ff0",
+    "status": "auto",
+    "input": "Online Product Reviews: Implications for Design and Marketing",
+    "title_search": {
+      "outcome": "not_found",
+      "reasons": [
+        "No Crossref title is close enough to this one (best similarity 0.64, needs 0.75 to be worth checking).",
+        "Closest but below threshold, not accepted: “The effect of online product reviews motivation on collaborative marketing” (2012), DOI 10.1109/isra.2012.6219240, similarity 0.64."
+      ],
+      "candidates": [
+        {
+          "title": "The effect of online product reviews motivation on collaborative marketing",
+          "year": 2012,
+          "doi": "10.1109/isra.2012.6219240",
+          "title_similarity": 0.64
+        },
+        {
+          "title": "Implications for Graphic, Product, Web Design and Marketing",
+          "year": 2017,
+          "doi": "10.4324/9781315254593-21",
+          "title_similarity": 0.63
+        },
+        {
+          "title": "Copywriting: successful writing for design, advertising, and marketing",
+          "year": 2013,
+          "doi": "10.5860/choice.50-6861",
+          "title_similarity": 0.58
+        },
+        {
+          "title": "Suspicious online product reviews: An empirical analysis of brand and product characteristics using Amazon data",
+          "year": 2023,
+          "doi": "10.1016/j.ijresmar.2023.06.006",
+          "title_similarity": 0.54
+        },
+        {
+          "title": "Analysis of pet‐food customer postpurchase experience using online customer reviews: Implications for product and marketing strategies",
+          "year": 2023,
+          "doi": "10.1002/agr.21866",
+          "title_similarity": 0.51
+        }
+      ]
+    },
+    "type": "journal-article",
+    "title": "not stated",
+    "authors": "not stated",
+    "year": "not stated",
+    "journal": "not stated",
+    "volume": "not stated",
+    "issue": "not stated",
+    "pages": "not stated",
+    "book_title": "not stated",
+    "editors": "not stated",
+    "publisher": "not stated",
+    "place": "not stated",
+    "report_number": "not stated",
+    "site_name": "not stated",
+    "doi": "not stated",
+    "url": "not stated",
+    "reference_text": "not stated",
+    "lookup_error": "No Crossref title is close enough to this one (best similarity 0.64, needs 0.75 to be worth checking). Closest but below threshold, not accepted: “The effect of online product reviews motivation on collaborative marketing” (2012), DOI 10.1109/isra.2012.6219240, similarity 0.64.",
+    "verification": {
+      "status": "not_found",
+      "warnings": [
+        "No match found. No Crossref title is close enough to this one (best similarity 0.64, needs 0.75 to be worth checking). Closest but below threshold, not accepted: “The effect of online product reviews motivation on collaborative marketing” (2012), DOI 10.1109/isra.2012.6219240, similarity 0.64."
+      ]
+    },
+    "search_links": {
+      "google_scholar": "https://scholar.google.com/scholar?q=Online+Product+Reviews%3A+Implications+for+Design+and+Marketing",
+      "google": "https://www.google.com/search?q=Online+Product+Reviews%3A+Implications+for+Design+and+Marketing"
+    }
+  },
+  {
+    "id": "ref-413f3d2e0b",
+    "status": "auto",
+    "input": "10.25300/MISQ/2022/16523",
+    "type": "journal-article",
+    "title": "not stated",
+    "authors": "not stated",
+    "year": "not stated",
+    "journal": "not stated",
+    "volume": "not stated",
+    "issue": "not stated",
+    "pages": "not stated",
+    "book_title": "not stated",
+    "editors": "not stated",
+    "publisher": "not stated",
+    "place": "not stated",
+    "report_number": "not stated",
+    "site_name": "not stated",
+    "doi": "10.25300/MISQ/2022/16523",
+    "url": "not stated",
+    "reference_text": "not stated",
+    "lookup_error": "Crossref has no record for DOI '10.25300/MISQ/2022/16523'. Check it was copied correctly.",
+    "verification": {
+      "status": "not_found",
+      "warnings": [
+        "No match found. Crossref has no record for DOI '10.25300/MISQ/2022/16523'. Check it was copied correctly."
+      ]
+    },
+    "search_links": {
+      "google_scholar": "https://scholar.google.com/scholar?q=10.25300%2FMISQ%2F2022%2F16523",
+      "google": "https://www.google.com/search?q=10.25300%2FMISQ%2F2022%2F16523"
+    }
+  }
+]
