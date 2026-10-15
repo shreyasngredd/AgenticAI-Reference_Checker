@@ -97,6 +97,15 @@ TITLE_WEAK_SCORE = 0.75
 RUNNER_UP_MARGIN = 0.05
 CANDIDATES_SHOWN = 5  # How many near misses to list for the student.
 
+# Searching Crossref by author surname and year (the chat's `find`). Results
+# are only candidates: verify() always marks them "check" with one of these
+# reasons, so a search can never make a reference "verified".
+AUTHOR_SEARCH_ROWS = 5
+SEARCH_REASONS = {
+    "result": "search result, not verified: pick the right one",
+    "added": "added from a search; paste its DOI to verify",
+}
+
 # Search links stored with each reference. They are only built, never fetched.
 SCHOLAR_SEARCH_URL = "https://scholar.google.com/scholar?q="
 GOOGLE_SEARCH_URL = "https://www.google.com/search?q="
@@ -210,6 +219,10 @@ def format_citation(record):
         # sentence-case title, and tells us whether the title was hand-edited.
         "original_title": clean_title,
         "authors": people(record.get("author", [])),
+        # Authors that are organisations have a "name" and no family name, so
+        # people() leaves them out. Keep their names (not a citation field) so
+        # the in-text citation can be marked Check instead of guessed.
+        "organisation_authors": [a["name"] for a in record.get("author", []) if a.get("name") and not a.get("family")],
         "year": year or "not stated",
         # For a chapter the container is the book; otherwise it is the journal.
         "journal": container if work_type == "journal-article" else "not stated",
@@ -249,6 +262,11 @@ def clean_doi(doi):
     return doi
 
 
+def doi_not_found_message(doi):
+    """The message for a DOI Crossref has no record of (HTTP 404)."""
+    return f"Crossref has no record for DOI '{doi}'. Check it was copied correctly."
+
+
 def lookup_doi(doi):
     """Look up one DOI on Crossref.
 
@@ -257,8 +275,7 @@ def lookup_doi(doi):
     """
     # quote() makes characters like "/" in the DOI safe to put in a URL.
     data, error = get_json(
-        CROSSREF_URL + urllib.parse.quote(doi), "Crossref",
-        not_found=f"Crossref has no record for DOI '{doi}'. Check it was copied correctly.",
+        CROSSREF_URL + urllib.parse.quote(doi), "Crossref", not_found=doi_not_found_message(doi),
     )
     if error:
         return None, error
@@ -795,13 +812,42 @@ def candidate_lines(candidates):
     ]
 
 
-def resolve_line(line, ref_id):
+def search_crossref_author_year(surname, year, topic=""):
+    """Search Crossref for works by `surname` published in `year`.
+
+    `topic` (optional words) narrows the results. Crossref decides what
+    matches; nothing is re-ranked or filtered here (no author disambiguation).
+    Returns (list of citations, None), at most AUTHOR_SEARCH_ROWS of them in
+    Crossref's order, or (None, error message) if Crossref couldn't be asked.
+    """
+    # Author and year filter; topic words only when there are any.
+    params = {
+        "query.author": surname,
+        "filter": f"from-pub-date:{year},until-pub-date:{year}",
+        "rows": AUTHOR_SEARCH_ROWS,
+    }
+    if topic:
+        params["query.bibliographic"] = topic
+    url = CROSSREF_SEARCH_URL + urllib.parse.urlencode(params)
+    data, error = get_json(url, "Crossref", not_found="Crossref found nothing.")
+    if error:
+        return None, error
+    # Pick the citation fields out of each record, keeping Crossref's order.
+    items = data.get("message", {}).get("items", [])[:AUTHOR_SEARCH_ROWS]
+    return [format_citation(item) for item in items], None
+
+
+def resolve_line(line, ref_id, cross_check_sources=True):
     """Build a library entry for one line of the input file.
 
     A line with a DOI is looked up by DOI. A line without one is searched on
     Crossref by title, and only a clear match (see search_crossref_title) is
     used. Otherwise all its fields stay "not stated" and the search result
     (reasons and candidates) is stored under "title_search" for verify().
+
+    cross_check_sources=False skips OpenAlex and Semantic Scholar, so only
+    Crossref is contacted (the Streamlit chat). If Crossref could not be
+    reached at all (not a 404), the entry gets "lookup_unavailable": True.
     """
     entry = {"id": ref_id, "status": "auto", "input": line}
     empty = {field: "not stated" for field in CITATION_FIELDS}
@@ -813,6 +859,7 @@ def resolve_line(line, ref_id):
         if error:
             entry.update(empty)
             entry["lookup_error"] = error
+            entry["lookup_unavailable"] = True  # The search itself failed.
             return entry
         # Stored on the entry, outside the citation fields, so no override can change it.
         entry["title_search"] = {
@@ -826,7 +873,8 @@ def resolve_line(line, ref_id):
             entry["lookup_error"] = " ".join(search["reasons"])
             return entry
         entry.update(search["citation"])
-        entry["cross_check"] = cross_check(search["citation"])
+        if cross_check_sources:
+            entry["cross_check"] = cross_check(search["citation"])
         return entry
 
     citation, error = lookup_doi(clean_doi(doi))
@@ -834,10 +882,14 @@ def resolve_line(line, ref_id):
         entry.update(empty)
         entry["doi"] = doi
         entry["lookup_error"] = error
+        # Anything but "no record" means Crossref could not be reached.
+        if error != doi_not_found_message(clean_doi(doi)):
+            entry["lookup_unavailable"] = True
     else:
         entry.update(citation)
         # Compare title, first author and year with OpenAlex and Semantic Scholar.
-        entry["cross_check"] = cross_check(citation)
+        if cross_check_sources:
+            entry["cross_check"] = cross_check(citation)
     return entry
 
 
@@ -1425,7 +1477,22 @@ def unchecked_reasons(entry, edited_fields):
     return [f"Could not confirm {', '.join(fields)}: {why}."] if fields else []
 
 
-def verify(entry, edited_fields=()):
+def crossref_identified(entry):
+    """True if Crossref identified the paper: the Streamlit chat's "Verified".
+
+    That is: the DOI resolved in Crossref, or the title search found a match
+    (similarity at least TITLE_AGREE_SCORE with the runner-up more than
+    RUNNER_UP_MARGIN below; see search_crossref_title). Every other result
+    stores a "lookup_error". Edits can't change this: they only touch
+    citation fields.
+    """
+    if "lookup_error" in entry:
+        return False  # DOI not found, Crossref unreachable, or no clear title match.
+    search = entry.get("title_search")
+    return search is None or search.get("outcome") == "match"
+
+
+def verify(entry, edited_fields=(), crossref_only=False):
     """Work out an entry's verification status and warnings. Done in code only.
 
     - "not_found": no source had a record, or a title search found no
@@ -1437,13 +1504,18 @@ def verify(entry, edited_fields=()):
                    belong to a different paper.
     - "verified":  sources agree and nothing is missing.
     Fields the student corrected by hand (edited_fields) count as confirmed.
+    crossref_only=True (the Streamlit chat) skips the other sources: an entry
+    can only be "verified" if crossref_identified is True, and no warning is
+    given for fields OpenAlex or Semantic Scholar didn't confirm.
     Returns (status, list of warnings).
     """
     # Code can't check text typed by hand, so say so instead of passing it.
     typed = []
     if stated(entry.get("reference_text")):
         typed = ["Reference text was typed by hand, so it is not checked against the fetched details."]
-    if not stated(entry.get("title")):
+    # Not identified: no title, or (Crossref only) no DOI or clear title match,
+    # even if a title was typed in later with an edit.
+    if not stated(entry.get("title")) or (crossref_only and not crossref_identified(entry)):
         search = entry.get("title_search") or {}
         if search.get("outcome") == "check":
             # Possible matches, but none clear enough to pick: list them for the student.
@@ -1451,10 +1523,16 @@ def verify(entry, edited_fields=()):
         return "not_found", [f"No match found. {entry.get('lookup_error', '')}".strip()] + typed
 
     warnings = validate_reference(entry, entry.get("type", "journal-article"))
+    # Found by an author-and-year search: always "check", reason first.
+    # "from_search" is not a citation field, so no edit can remove it.
+    if entry.get("from_search") in SEARCH_REASONS:
+        warnings.insert(0, SEARCH_REASONS[entry["from_search"]])
     if "title" not in edited_fields and not confident_match(entry):
         warnings.append(f"Crossref's title “{entry['title']}” doesn't match your text. Check the DOI.")
-    warnings += disagreement_reasons(entry, edited_fields)
-    warnings += unchecked_reasons(entry, edited_fields)
+    if not crossref_only:
+        # Only refs mode compares with OpenAlex and Semantic Scholar.
+        warnings += disagreement_reasons(entry, edited_fields)
+        warnings += unchecked_reasons(entry, edited_fields)
     if "title" not in edited_fields:
         warnings += title_case_warnings(entry)
     warnings += typed
@@ -1606,6 +1684,18 @@ def parse_value(field, text):
     return text
 
 
+def clear_fields_for_new_type(parsed, old_entry):
+    """When an edit changes the type, clear the old type's details.
+
+    E.g. a journal's volume would be wrong for a book. Fields given new
+    values in the same edit are kept. The cleared fields then show up as
+    missing, so the student is asked for them. Changes `parsed` in place.
+    """
+    if "type" in parsed and parsed["type"] != old_entry.get("type", "journal-article"):
+        for field in TYPE_SPECIFIC_FIELDS:
+            parsed.setdefault(field, "not stated")
+
+
 def apply_edit(ref_id, changes, style=None, show=True):
     """Save hand corrections for one entry and re-generate the reference list.
 
@@ -1628,12 +1718,7 @@ def apply_edit(ref_id, changes, style=None, show=True):
     old_entry = apply_overrides(entry, overrides)
     old = format_reference(old_entry, style)
 
-    # When the type changes, clear the old type's details (e.g. a journal's
-    # publisher would be wrong for a book) unless new values were given.
-    # They then show up as missing, so the chat asks for them.
-    if "type" in parsed and parsed["type"] != old_entry.get("type", "journal-article"):
-        for field in TYPE_SPECIFIC_FIELDS:
-            parsed.setdefault(field, "not stated")
+    clear_fields_for_new_type(parsed, old_entry)
 
     # Save the overrides and mark the entry as edited.
     overrides.setdefault(ref_id, {}).update(parsed)

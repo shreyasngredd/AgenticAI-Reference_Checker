@@ -1,0 +1,20 @@
+{
+  "Information Systems": [
+    {"name": "MIS Quarterly", "issn": ["0276-7783", "2162-9730"]},
+    {"name": "Information Systems Research", "issn": ["1047-7047", "1526-5536"]},
+    {"name": "Journal of Management Information Systems", "issn": ["0742-1222", "1557-928X"]},
+    {"name": "Journal of the Association for Information Systems", "issn": ["1536-9323"]}
+  ],
+  "Marketing": [
+    {"name": "Journal of Marketing", "issn": ["0022-2429", "1547-7185"]},
+    {"name": "Journal of Marketing Research", "issn": ["0022-2437", "1547-7193"]},
+    {"name": "Journal of Consumer Research", "issn": ["0093-5301", "1537-5277"]},
+    {"name": "Marketing Science", "issn": ["0732-2399", "1526-548X"]}
+  ],
+  "General Management": [
+    {"name": "Academy of Management Journal", "issn": ["0001-4273", "1948-0989"]},
+    {"name": "Academy of Management Review", "issn": ["0363-7425", "1930-3807"]},
+    {"name": "Strategic Management Journal", "issn": ["0143-2095", "1097-0266"]},
+    {"name": "Administrative Science Quarterly", "issn": ["0001-8392", "1930-3815"]}
+  ]
+}

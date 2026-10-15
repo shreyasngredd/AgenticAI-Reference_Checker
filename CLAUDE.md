@@ -47,11 +47,27 @@ This is a **university assignment**, so clarity matters more than cleverness.
   tools format the reference, set the OK / Check / Not found label and build
   the Google Scholar link in code;
   the model only relays them. It does not touch `refs/`.
-- `app.py`: Streamlit app (`streamlit run app.py`) showing each library entry
-  as a card: status colour, warnings, an editable reference text box and the
-  two search buttons. Saving goes through `agent.apply_edit`, storing the text
-  as the `reference_text` override (used exactly as typed, so the entry is
-  marked `check`). It never sets the status itself.
+- `app.py`: Streamlit reference chat "Citation Checker beta" (`streamlit run app.py`), spec in
+  `specs/goal-spec.md`. It only draws; the logic is in `refchat.py` (no
+  Streamlit import, so `parse_command` and `handle_message` are testable). The sidebar shows `refchat.help_text()`, the same text as `help`.
+  Paste DOIs or titles; commands `style`, `list`, `edit N field value`,
+  `find SURNAME YEAR [topic words]`, `add N`, `clear`, `help`. `find`
+  (`agent.search_crossref_author_year`) shows up to 5 "APA 7 preview" results
+  and `add N` keeps one; both are always `Check` (`from_search` on the entry,
+  read by `verify`), never Verified. Crossref only (`resolve_line(..., cross_check_sources=False)`
+  and `verify(..., crossref_only=True)`): Verified means the DOI resolved or
+  the title search found a clear match (`crossref_identified`), with nothing
+  else to check, and is shown as "Verified against Crossref only". Edits live
+  in `st.session_state` only (lost on reload); it never writes `refs/` or any
+  file. Tests: `tests/test_refchat.py`, one class per acceptance criterion.
+  `accept N` confirms a Check reference (the student's call; it stays Check).
+  The export (sidebar `st.download_button`s, built in memory by `export.py`)
+  is Verified + confirmed references, sorted by first author and year, as
+  `references.txt` and `references.csv` (UTF-8 with BOM). `cite N` gives APA 7
+  in-text citations (`citations.py`, APA only); missing authors or year,
+  organisation authors (`organisation_authors` from Crossref, or an author
+  with no given name) and duplicate citations are `Check`, never guessed.
+  Tests: `tests/test_export.py` (criteria 48–65).
 - `drafts/references_apa.md`: written on every refs run or edit, always in
   APA 7: each reference followed by its status, warnings and the two links.
 

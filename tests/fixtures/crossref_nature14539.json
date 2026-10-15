@@ -1,0 +1,40 @@
+{
+  "status": "ok",
+  "message": {
+    "type": "journal-article",
+    "title": [
+      "Deep learning"
+    ],
+    "author": [
+      {
+        "given": "Yann",
+        "family": "LeCun"
+      },
+      {
+        "given": "Yoshua",
+        "family": "Bengio"
+      },
+      {
+        "given": "Geoffrey",
+        "family": "Hinton"
+      }
+    ],
+    "issued": {
+      "date-parts": [
+        [
+          2015,
+          5,
+          27
+        ]
+      ]
+    },
+    "container-title": [
+      "Nature"
+    ],
+    "volume": "521",
+    "issue": "7553",
+    "page": "436-444",
+    "publisher": "Springer Science and Business Media LLC",
+    "DOI": "10.1038/nature14539"
+  }
+}
