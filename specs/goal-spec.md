@@ -789,9 +789,10 @@ Each criterion names what decides it:
 17. The chat writes no files, including for `find` and `add`.
     **Decided by:** test (`agent.save_json` and file writes are not called)
     + inspection.
-18. `refchat.py` and `app.py` contain no API keys and no model provider
-    calls. **Decided by:** inspection (a `grep` for `key`, `token`,
-    `anthropic`, `openai`, `claude_agent_sdk`).
+18. `refchat.py`, `app.py` and every module they import (including
+    `agent.py`) contain no API keys and no model provider calls.
+    **Decided by:** inspection (a `grep` for `key`, `token`, `anthropic`,
+    `openai`, `claude_agent_sdk`).
 19. The history stays on screen across Streamlit reruns, and is gone after a
     page reload. **Decided by:** manual.
 20. Proper nouns in APA titles: when the source title is in Title Case, code
@@ -1355,7 +1356,7 @@ the `FakeCrossref` of `tests/test_refchat.py` (extended to answer
 | `tests/test_fields.py` | Tests for criteria 36–45. |
 | `tests/test_mylist.py` | Tests for criteria 75–87. |
 | `app.py` | Streamlit page: `st.chat_input`, `st.chat_message`, the sidebar with the export buttons, state in `st.session_state`. Only draws what `refchat.py` and `export.py` return. |
-| `agent.py` | Small additions only: `resolve_line` can skip the cross-check; `verify` has a Crossref-only mode using `crossref_identified`; Crossref unavailability is marked on the entry; `search_crossref_author_year` for `find`; `verify` gives search results and added references their fixed `Check` reason; `format_citation` keeps Crossref's organisation authors as `organisation_authors`; the title and author-and-year searches take an optional list of ISSNs (Crossref `issn` filter plus the same check in code), split into batches of `ISSN_BATCH_SIZE` (7.6); `verify` has a fixed `Check` reason for a title-search candidate added to My list. Refs mode behaves as before. |
+| `agent.py` | Small additions only: `resolve_line` can skip the cross-check; `verify` has a Crossref-only mode using `crossref_identified`; Crossref unavailability is marked on the entry; `search_crossref_author_year` for `find`; `verify` gives search results and added references their fixed `Check` reason; `format_citation` keeps Crossref's organisation authors as `organisation_authors`; the title and author-and-year searches take an optional list of ISSNs (Crossref `issn` filter plus the same check in code), split into batches of `ISSN_BATCH_SIZE` (7.6); `verify` has a fixed `Check` reason for a title-search candidate added to My list. Refs mode behaves as before. Since 2026-10-18 it has no `claude_agent_sdk` import, no paper mode and no `refs chat`: only plain functions and the `refs` / `refs edit` command line. |
 | `config/fields.json` | Groups, sub-fields and their journals (name and ISSNs) for the Field setting (7.3). Edited by hand (ISSNs only via `--fill` or copied from the report); the chat only reads it. |
 | `tests/test_refchat.py` | Tests for criteria 1–17 and 21–33. |
 | `tests/test_export.py` | Tests for criteria 48–65. |
@@ -1415,8 +1416,8 @@ the `FakeCrossref` of `tests/test_refchat.py` (extended to answer
 
 ## 7. Decisions
 
-Agreed on 2026-10-15. They apply to refs mode (`agent.py`), `chat.py` and
-the Streamlit chat (`refchat.py`), which all share the code in `agent.py`.
+Agreed on 2026-10-15. They apply to refs mode (`agent.py`) and the
+Streamlit chat (`refchat.py`), which share the code in `agent.py`.
 Each band and rule has a test in `tests/test_refs.py`
 (`python -m unittest discover tests`).
 
@@ -1467,7 +1468,7 @@ is scored against the line with the title similarity of section 2 (rounded to
   the reason "spaced en dash, review casing and punctuation", because it is
   often typed in place of an em dash.
 - Show the original title next to the formatted one whenever they differ
-  (in `drafts/references_apa.md`, the Streamlit chat and `chat.py`).
+  (in `drafts/references_apa.md` and the Streamlit chat).
 - A title corrected by hand is used exactly as typed and never flagged.
 - Chicago and Harvard keep the title as Crossref gives it.
 

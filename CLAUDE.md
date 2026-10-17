@@ -1,7 +1,10 @@
 # Research Companion
 
-A literature research companion agent built in Python with the Claude Agent SDK
-(`claude-agent-sdk`). It reads papers and helps write structured reading notes.
+A literature research companion built in plain Python. Its main part is the
+Streamlit "Reference Checker (beta)": it looks references up on Crossref and
+formats and checks them. It is deterministic: no AI model calls, no API keys,
+no Agent SDK; the network code uses `urllib` from the standard library. The
+only third-party package is `streamlit` (`requirements.txt`).
 
 This is a **university assignment**, so clarity matters more than cleverness.
 
@@ -14,8 +17,8 @@ This is a **university assignment**, so clarity matters more than cleverness.
   - `library.json`: metadata fetched from Crossref. Entries with
     `"status": "edited"` have hand corrections and are not re-fetched.
   - `overrides.json`: hand corrections by id, applied on top of the library
-    when formatting. Only `refs edit` and the `refs chat` agent's
-    `edit_reference` tool write it; nothing else may overwrite it.
+    when formatting. Only `refs edit` writes it; nothing else may
+    overwrite it.
   - `references.md` and `last_run.json`: the generated list and the settings
     used to re-generate it. Unmatched or incomplete entries go under
     "Needs checking" with a reason, never into the main list.
@@ -41,12 +44,9 @@ This is a **university assignment**, so clarity matters more than cleverness.
   - Each entry also has `search_links` (Google Scholar and Google searches for
     title + first author's family name, or the original line if not found).
     These URLs are only built, never requested or scraped.
-- `chat.py`: terminal reference-formatting chatbot (ClaudeSDKClient, keeps
-  context; "exit" quits). Its only tools are `lookup_doi` and
-  `search_crossref` (Crossref, using `agent.search_crossref_title`). The
-  tools format the reference, set the OK / Check / Not found label and build
-  the Google Scholar link in code;
-  the model only relays them. It does not touch `refs/`.
+- `agent.py`: the shared lookup, formatting, status and link code, plus the
+  plain command-line refs mode (`refs`, `refs edit`). Removed 2026-10-18:
+  the Agent SDK paper mode, the `refs chat` agent and `chat.py`.
 - `app.py`: Streamlit reference chat "Reference Checker (beta)" (`streamlit run app.py`), spec in
   `specs/goal-spec.md`. It only draws; the logic is in `refchat.py` (no
   Streamlit import, so `parse_command` and `handle_message` are testable). The sidebar shows `refchat.help_text()`, the same text as `help`.
@@ -158,8 +158,11 @@ This is a **university assignment**, so clarity matters more than cleverness.
 
 - Python 3.10+.
 - Tests: `python -m unittest discover tests` (standard library, no network).
-- Keep API keys in environment variables (`ANTHROPIC_API_KEY`), never in code
-  or committed files.
+- No AI model calls and no `claude_agent_sdk` / `anthropic` imports anywhere.
+  Optional keys (`SEMANTIC_SCHOLAR_API_KEY`) live in environment variables,
+  never in code or committed files.
+- `requirements.txt` lists only third-party packages actually imported
+  (currently just `streamlit`).
 - Draft notes are Markdown files named after the paper, e.g.
   `drafts/smith-2023-attention.md`.
 - Draft notes follow `notes/_template.md` (read it, never edit it). The agent

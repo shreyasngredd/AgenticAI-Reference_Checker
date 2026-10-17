@@ -1,37 +1,31 @@
-"""Literature research companion agent.
+"""Reference lookup, checking and formatting (plain Python, no AI).
 
-Two modes:
+This module holds the code the Streamlit Reference Checker (app.py,
+refchat.py) uses: Crossref lookups by DOI, title, or author and year, DOI
+clean-up, APA 7 / Chicago / Harvard formatting, the verification status and
+the Google Scholar / Google search links. It only uses the standard library
+(urllib for the network) and never calls Claude or needs an API key.
 
-1. Paper mode: reads one paper (PDF), extracts the fields from
-   notes/_template.md, looks for related papers in notes/, and writes one
-   draft note to drafts/.
-
-2. Refs mode: reads a list of references (one per line), looks up each DOI
-   on Crossref (or searches Crossref by title when a line has no DOI), saves the metadata to refs/library.json, and writes a
-   formatted reference list to refs/references.md. Hand corrections go in
-   refs/overrides.json and are applied on top of the fetched metadata.
-   It also writes drafts/references_apa.md: each reference in APA 7 with
-   its status, warnings, and Google Scholar / Google search links.
-   This mode is plain Python and does not call Claude.
+It also has a small command-line refs mode: it reads a list of references
+(one per line), looks up each DOI on Crossref (or searches Crossref by title
+when a line has no DOI), saves the metadata to refs/library.json, and writes
+a formatted reference list to refs/references.md. Hand corrections go in
+refs/overrides.json and are applied on top of the fetched metadata. It also
+writes drafts/references_apa.md: each reference in APA 7 with its status,
+warnings, and Google Scholar / Google search links.
 
 Usage:
-    python agent.py papers/some-paper.pdf
     python agent.py refs --input refs.txt [--style apa|chicago|harvard]
     python agent.py refs edit <id> --field year --value 2020 [--style ...]
-    python agent.py refs chat
 """
 
 import argparse
-import asyncio
 import difflib
 import hashlib
-import itertools
 import json
 import os
 import re
-import shutil
 import sys
-import textwrap
 import time
 import unicodedata
 import urllib.error
@@ -39,19 +33,6 @@ import urllib.parse
 import urllib.request
 from datetime import date
 from pathlib import Path
-
-from claude_agent_sdk import (
-    AssistantMessage,
-    ClaudeAgentOptions,
-    ClaudeSDKClient,
-    HookMatcher,
-    ResultMessage,
-    TextBlock,
-    ToolUseBlock,
-    create_sdk_mcp_server,
-    query,
-    tool,
-)
 
 # Folder this script lives in, so paths work no matter where it is run from.
 PROJECT_DIR = Path(__file__).resolve().parent
@@ -62,17 +43,6 @@ OVERRIDES_PATH = REFS_DIR / "overrides.json"  # Hand corrections, by id. Never o
 OUTPUT_PATH = REFS_DIR / "references.md"  # The formatted reference list.
 LAST_RUN_PATH = REFS_DIR / "last_run.json"  # Style and ids of the last list, for re-generating.
 APA_REPORT_PATH = DRAFTS_DIR / "references_apa.md"  # APA list with status, warnings and search links.
-
-# The only built-in tools the agent gets. No Bash, so it cannot run shell commands.
-# Edit lets the agent fill in Connections after the draft is first written.
-TOOLS = ["Read", "Write", "Edit", "Glob", "Grep"]
-
-# Custom tools are named mcp__<server name>__<tool name>.
-LIT_TOOLS = [
-    "mcp__lit__lookup_paper",
-    "mcp__lit__lookup_openalex",
-    "mcp__lit__search_semantic_scholar",
-]
 
 # Free citation metadata APIs. None of them needs an API key.
 CROSSREF_URL = "https://api.crossref.org/works/"
@@ -111,54 +81,6 @@ SEARCH_REASONS = {
 # Search links stored with each reference. They are only built, never fetched.
 SCHOLAR_SEARCH_URL = "https://scholar.google.com/scholar?q="
 GOOGLE_SEARCH_URL = "https://www.google.com/search?q="
-
-SYSTEM_PROMPT = """You are a literature research companion. You help a student
-turn one research paper into a structured draft reading note.
-
-Steps:
-1. Read notes/_template.md to see the fields a note must have.
-2. Read the paper at the path you are given.
-3. Fill in each template field using only what the paper says.
-   If the paper prints a DOI, call lookup_paper with it to get accurate
-   citation metadata for the Citation field. Only use a DOI that appears in
-   the paper; never guess one. If the lookup fails, build the citation from
-   the paper alone. lookup_paper also checks the title, first author and year
-   against OpenAlex and Semantic Scholar; for any field in its "disagree"
-   list, use what the paper itself prints.
-   lookup_openalex (by DOI) and search_semantic_scholar (by the title exactly
-   as printed in the paper) give a second opinion when there is no DOI or
-   Crossref fails. Only use a search result if its title_similarity is at
-   least 0.9; otherwise ignore it.
-4. Write exactly one draft note to drafts/, named after the paper,
-   for example drafts/smith-2023-attention.md. For now, put "not stated"
-   under each Connections line.
-5. After the draft is written, compare it against the existing notes:
-   - Use Glob to list notes/*.md (skip notes/_template.md) and Read each one.
-     Use Grep to find notes that share key terms, methods, or datasets.
-   - Supports: a note whose findings agree with this paper's findings.
-   - Contradicts: a note whose findings disagree with this paper's findings.
-   - Same dataset: a note about a paper that uses the same dataset.
-6. Use Edit to update the Connections section of the draft. Cite the note
-   each connection comes from by its file path, plus one short reason taken
-   from both papers, in this format:
-   - **Supports:** notes/jones-2021-transformers.md (both report X)
-   Put several notes on one line separated by "; ". If no note fits a line,
-   leave it as "not stated". Only cite notes you actually read, and only
-   claim a connection that both the draft and the cited note clearly support.
-
-Rules:
-- Never write to notes/. Only write to drafts/.
-- Never invent citations, claims, numbers, authors, or years. Every field must
-  come from the paper itself, or from an existing note for Connections.
-- If the paper does not give a field, write exactly: not stated
-- Leave the "My reaction" section empty. It is for the student.
-"""
-
-
-def error_result(message):
-    """Build a tool result that tells Claude the tool call failed."""
-    return {"content": [{"type": "text", "text": message}], "is_error": True}
-
 
 def polite_url(url):
     """Add mailto=<address> to a Crossref URL when CROSSREF_MAILTO is set.
@@ -295,7 +217,7 @@ def lookup_doi(doi):
     """Look up one DOI on Crossref.
 
     Returns (citation, None) on success, or (None, error message) on failure.
-    Used by both the lookup_paper tool and refs mode.
+    Used by refs mode and the Streamlit chat.
     """
     # quote() makes characters like "/" in the DOI safe to put in a URL.
     data, error = get_json(
@@ -455,134 +377,6 @@ def cross_check(citation):
     return result
 
 
-def tool_json(data):
-    """Build a successful tool result containing JSON."""
-    return {"content": [{"type": "text", "text": json.dumps(data, indent=2, ensure_ascii=False)}]}
-
-
-@tool(
-    "lookup_paper",
-    "Look up citation metadata (title, authors, year, journal, etc.) for a "
-    "DOI using the Crossref API, and cross-check the title, first author and "
-    "year against OpenAlex and Semantic Scholar. Only pass a DOI printed in the paper.",
-    {"doi": str},
-)
-async def lookup_paper(args):
-    """Custom tool: fetch citation metadata for one DOI from Crossref, then cross-check it."""
-    doi = clean_doi(args.get("doi", ""))
-    if not doi:
-        return error_result("No DOI given. Pass a DOI like 10.1000/xyz123.")
-
-    # These functions wait on the network, so run them in a background thread.
-    citation, error = await asyncio.to_thread(lookup_doi, doi)
-    if error:
-        return error_result(error)
-    check = await asyncio.to_thread(cross_check, citation)
-    return tool_json({"crossref": citation, "cross_check": check})
-
-
-@tool(
-    "lookup_openalex",
-    "Look up a DOI on OpenAlex: title, authors, year, venue. Only pass a DOI printed in the paper.",
-    {"doi": str},
-)
-async def lookup_openalex(args):
-    """Custom tool: fetch metadata for one DOI from OpenAlex."""
-    doi = clean_doi(args.get("doi", ""))
-    if not doi:
-        return error_result("No DOI given. Pass a DOI like 10.1000/xyz123.")
-    found, error = await asyncio.to_thread(lookup_openalex_doi, doi)
-    return error_result(error) if error else tool_json(found)
-
-
-@tool(
-    "search_semantic_scholar",
-    "Search Semantic Scholar for the paper best matching a title. Returns its "
-    "title, authors, year, venue, DOI and a title_similarity score (0 to 1). "
-    "Pass the title exactly as printed in the paper.",
-    {"title": str},
-)
-async def search_semantic_scholar(args):
-    """Custom tool: find a paper on Semantic Scholar by title."""
-    title = args.get("title", "").strip()
-    if not title:
-        return error_result("No title given.")
-    found, error = await asyncio.to_thread(search_semantic_scholar_title, title)
-    return error_result(error) if error else tool_json(found)
-
-
-# Bundle the custom tools into an in-process MCP server named "lit".
-LIT_SERVER = create_sdk_mcp_server(name="lit", tools=[lookup_paper, lookup_openalex, search_semantic_scholar])
-
-
-async def only_write_to_drafts(input_data, tool_use_id, context):
-    """Hook that runs before every Write or Edit call.
-
-    Blocks the change unless the target file is inside drafts/. This enforces
-    the drafts-only rule in code, so it holds even if the model ignores the
-    system prompt.
-    """
-    file_path = input_data["tool_input"].get("file_path", "")
-
-    # Resolve the path so tricks like "drafts/../notes/x.md" are caught.
-    target = (PROJECT_DIR / file_path).resolve()
-
-    if target.is_relative_to(DRAFTS_DIR):
-        return {}  # Empty result means "no objection", so the write goes ahead.
-
-    return {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": "You may only write files inside drafts/.",
-        }
-    }
-
-
-async def main():
-    """Check the command-line argument, run the agent, and print its output."""
-    # 1. Get the PDF path from the command line.
-    if len(sys.argv) != 2:
-        print("Usage: python agent.py <path-to-paper.pdf>")
-        print("   or: python agent.py refs --input refs.txt [--style apa|chicago|harvard]")
-        sys.exit(1)
-
-    pdf_path = Path(sys.argv[1]).resolve()
-    if not pdf_path.is_file():
-        print(f"File not found: {pdf_path}")
-        sys.exit(1)
-
-    # 2. Configure the agent.
-    options = ClaudeAgentOptions(
-        model="claude-opus-5-5",
-        system_prompt=SYSTEM_PROMPT,
-        tools=TOOLS,  # The only tools that exist for the agent.
-        mcp_servers={"lit": LIT_SERVER},  # Adds our custom lookup_paper tool.
-        # Run these without asking for permission each time.
-        allowed_tools=TOOLS + LIT_TOOLS,
-        disallowed_tools=["Bash"],  # Extra safety: Bash is never available.
-        cwd=str(PROJECT_DIR),  # Relative paths like drafts/ resolve here.
-        hooks={
-            # Check every Write and Edit call before it runs ("|" means "or").
-            "PreToolUse": [HookMatcher(matcher="Write|Edit", hooks=[only_write_to_drafts])],
-        },
-    )
-
-    prompt = f"Create a draft note for the paper at: {pdf_path}"
-
-    # 3. Run the agent and print what it says and which tools it calls.
-    async for message in query(prompt=prompt, options=options):
-        if isinstance(message, AssistantMessage):
-            for block in message.content:
-                if isinstance(block, TextBlock):
-                    print(block.text)
-                elif isinstance(block, ToolUseBlock):
-                    print(f"[tool] {block.name}: {block.input}")
-        elif isinstance(message, ResultMessage):
-            # The last message: says whether the run succeeded and what it cost.
-            print(f"\nDone. Error: {message.is_error}. Cost: ${message.total_cost_usd}")
-
-
 # ---------------------------------------------------------------------------
 # Refs mode: python agent.py refs --input refs.txt [--style apa|chicago|harvard]
 # ---------------------------------------------------------------------------
@@ -645,8 +439,8 @@ TYPE_SPECIFIC_FIELDS = [
     "publisher", "place", "report_number", "site_name",
 ]
 
-# Fields APA 7 requires for each type of source. The chat asks the student
-# for any that are missing instead of guessing them. (For a report or
+# Fields APA 7 requires for each type of source. Missing ones are reported
+# so the student can fill them in, instead of guessing them. (For a report or
 # webpage, the author can be an organisation, e.g. "World Health Organization".)
 APA7_REQUIRED = {
     "journal-article": ["authors", "year", "title", "journal", "volume", "pages"],
@@ -755,7 +549,7 @@ def apply_overrides(entry, overrides):
     return merged
 
 
-# --- Finding a paper by its title (refs mode and chat.py) ---
+# --- Finding a paper by its title (refs mode and the Streamlit chat) ---
 
 def issn_filter(issns):
     """Crossref filter parts for a list of ISSNs: ["issn:A", "issn:B", ...].
@@ -1837,12 +1631,9 @@ def run_edit(args):
 
 def run_refs(args):
     """Refs mode: resolve each reference, update the library, write the list."""
-    # "refs edit ..." and "refs chat" are separate commands.
+    # "refs edit ..." is a separate command.
     if args and args[0] == "edit":
         run_edit(args[1:])
-        return
-    if args and args[0] == "chat":
-        asyncio.run(run_chat())
         return
 
     # 1. Read the command-line options.
@@ -1902,243 +1693,11 @@ def run_refs(args):
     write_output([entry["id"] for entry in used], options.style, library, overrides)
 
 
-# ---------------------------------------------------------------------------
-# Refs chat: python agent.py refs chat
-# Talk to an agent to fix references, e.g. "change reference 4 to a book
-# chapter and add editors". It can only change refs/overrides.json, through
-# the edit_reference tool below.
-# ---------------------------------------------------------------------------
-
-CHAT_PROMPT = """You help a student fix entries in their reference list.
-You can only see and change references through your tools. References are
-numbered as in the list shown at the start of the chat; use those numbers.
-
-How to handle a request:
-1. Call get_reference to see the reference's current fields.
-2. Work out every field the change needs. For example, a book chapter needs
-   book_title, editors, publisher and pages (and place in Chicago or Harvard).
-3. If the student has not given you a value for any of these, ask for all of
-   them in one short message and wait for the answer. Never fill in a value
-   yourself, even if you think you know it: no guessing, no remembering, no
-   copying from other references. edit_reference rejects values the student
-   did not type.
-4. When you have the values, call edit_reference once with all the changes.
-   The old and new reference are shown to the student automatically, so do
-   not repeat them.
-5. If edit_reference says fields are still missing, ask the student for them.
-   If the student says a detail is unknown, set it to "not stated" and stop
-   asking about it.
-
-Each reference has a status (verified, check, or not_found) and warnings.
-These are worked out by code; you cannot set or change them. Use the
-warnings to see what to ask the student about.
-
-Field formats:
-- type: journal-article, book-chapter, book, report, or webpage
-- authors, editors: "Family, Given; Family, Given". An organisation as author
-  is just its name, e.g. "World Health Organization".
-- year: a number, e.g. 2020
-- pages: e.g. 45-67
-- url: starts with https://
-- everything else: plain text (report_number, site_name, place, ...)
-
-Keep replies short.
-"""
-
-# What the chat tools need to remember while the chat is running.
-CHAT_STATE = {
-    "numbers": {},  # Reference number shown to the student -> entry id.
-    "user_text": "",  # Everything the student has typed, to check edits against.
-    "style": "apa",  # Style of the last generated list.
-}
-
-
-def typed_by_student(text):
-    """True if every word and number in text appears in what the student typed.
-
-    This is a simple code check that the agent is not inventing values.
-    """
-    return words(text) <= words(CHAT_STATE["user_text"])
-
-
-def print_side_by_side(old, new):
-    """Print the old and new reference next to each other in two columns."""
-    width = shutil.get_terminal_size((100, 24)).columns
-    column = max(25, (width - 3) // 2)
-    left = textwrap.wrap(old, column) or [""]
-    right = textwrap.wrap(new, column) or [""]
-
-    print()
-    print("OLD".ljust(column) + " | NEW")
-    print("-" * column + "-+-" + "-" * column)
-    for old_line, new_line in itertools.zip_longest(left, right, fillvalue=""):
-        print(old_line.ljust(column) + " | " + new_line)
-    print()
-
-
-def chat_entry(number):
-    """Return (id, entry with overrides applied) for a reference number."""
-    ref_id = CHAT_STATE["numbers"].get(number)
-    if ref_id is None:
-        return None, None
-    entry = next(e for e in load_library() if e["id"] == ref_id)
-    return ref_id, apply_overrides(entry, load_overrides())
-
-
-def numbered_list():
-    """The reference list with the numbers the student sees."""
-    lines = []
-    for number, ref_id in CHAT_STATE["numbers"].items():
-        _, entry = chat_entry(number)
-        lines.append(f"{number}. {format_reference(entry, CHAT_STATE['style'])}")
-    return "\n".join(lines)
-
-
-def text_result(text):
-    """Build a normal (successful) tool result."""
-    return {"content": [{"type": "text", "text": text}]}
-
-
-@tool("list_references", "Show the numbered reference list.", {})
-async def list_references(args):
-    """Chat tool: show the numbered list."""
-    return text_result(numbered_list())
-
-
-@tool(
-    "get_reference",
-    "Show every field of one reference, and which required fields are missing.",
-    {"number": int},
-)
-async def get_reference(args):
-    """Chat tool: show one reference's fields."""
-    ref_id, entry = chat_entry(args["number"])
-    if entry is None:
-        return error_result(f"There is no reference {args['number']}. Call list_references.")
-    fields = {field: entry.get(field, "not stated") for field in CITATION_FIELDS}
-    missing = missing_fields(entry, CHAT_STATE["style"])
-    # The status is worked out here by code, never by the model.
-    status, warnings = verify(entry, load_overrides().get(ref_id, {}))
-    return text_result(
-        f"Reference {args['number']} (id {ref_id}):\n{json.dumps(fields, indent=2, ensure_ascii=False)}\n"
-        f"Missing required fields: {', '.join(missing) or 'none'}\n"
-        f"Status (set by code): {status}\n"
-        "Warnings:\n" + ("\n".join(f"- {w}" for w in warnings) or "- none")
-    )
-
-
-@tool(
-    "edit_reference",
-    "Change fields of one reference. Saves to refs/overrides.json, re-generates "
-    "the list, and shows the student the old and new reference. Only use "
-    "values the student typed.",
-    {
-        "type": "object",
-        "properties": {
-            "number": {"type": "integer", "description": "reference number from the list"},
-            "changes": {
-                "type": "object",
-                "description": 'field -> new value, e.g. {"type": "book-chapter", "pages": "45-67"}',
-                "additionalProperties": {"type": "string"},
-            },
-        },
-        "required": ["number", "changes"],
-    },
-)
-async def edit_reference(args):
-    """Chat tool: save changes for one reference and show old vs new."""
-    ref_id = CHAT_STATE["numbers"].get(args["number"])
-    if ref_id is None:
-        return error_result(f"There is no reference {args['number']}. Call list_references.")
-    changes = args.get("changes") or {}
-    if not changes:
-        return error_result("No changes given.")
-
-    # Code check against guessing: every value (except the type and
-    # "not stated") must be made of words the student actually typed.
-    not_typed = [
-        field for field, text in changes.items()
-        if field != "type" and text != "not stated" and not typed_by_student(str(text))
-    ]
-    if not_typed:
-        return error_result(
-            f"Not saved. The student did not give these values: {', '.join(not_typed)}. "
-            "Ask the student for them instead of guessing."
-        )
-
-    try:
-        old, new, missing = apply_edit(ref_id, changes, CHAT_STATE["style"], show=False)
-    except ValueError as err:
-        return error_result(f"Not saved. {err}")
-
-    print_side_by_side(old, new)
-    note = f"Still missing: {', '.join(missing)}. Ask the student for these." if missing else "Nothing missing."
-    return text_result(f"Saved to refs/overrides.json and re-generated {OUTPUT_PATH.name}. {note}")
-
-
-# The chat's tools, in their own in-process MCP server named "refs".
-REFS_SERVER = create_sdk_mcp_server(name="refs", tools=[list_references, get_reference, edit_reference])
-REFS_TOOLS = ["mcp__refs__list_references", "mcp__refs__get_reference", "mcp__refs__edit_reference"]
-
-
-async def run_chat():
-    """Refs chat: a multi-turn conversation for fixing references."""
-    # 1. Number the references from the last generated list.
-    library = load_library()
-    if not library:
-        print("No references yet. Run first: python agent.py refs --input refs.txt")
-        return
-    last_run = load_json(LAST_RUN_PATH, {"style": "apa", "ids": [e["id"] for e in library]})
-    CHAT_STATE["style"] = last_run["style"]
-
-    overrides = load_overrides()
-    by_id = {entry["id"]: entry for entry in library}
-    entries = [apply_overrides(by_id[i], overrides) for i in last_run["ids"] if i in by_id]
-    # Numbers are fixed for the whole chat, even if an edit changes the sort order.
-    CHAT_STATE["numbers"] = {n: e["id"] for n, e in enumerate(sorted(entries, key=sort_key), start=1)}
-
-    print(f"References ({STYLES[CHAT_STATE['style']]}):\n")
-    print(numbered_list())
-    print('\nSay what to change, e.g. "change reference 4 to a book chapter". Type "quit" to stop.')
-
-    # 2. Configure the agent: no built-in tools at all, only the three refs tools.
-    options = ClaudeAgentOptions(
-        model="claude-opus-5-5",
-        system_prompt=CHAT_PROMPT,
-        tools=[],  # No Read/Write/Bash: it can only change references via edit_reference.
-        mcp_servers={"refs": REFS_SERVER},
-        allowed_tools=REFS_TOOLS,
-        cwd=str(PROJECT_DIR),
-    )
-
-    # 3. ClaudeSDKClient keeps one session open, so the agent remembers
-    #    earlier messages (e.g. its own question and the student's answer).
-    async with ClaudeSDKClient(options=options) as client:
-        while True:
-            try:
-                # input() blocks, so run it in a thread to keep the client running.
-                text = (await asyncio.to_thread(input, "\nyou> ")).strip()
-            except (EOFError, KeyboardInterrupt):
-                break
-            if text.lower() in ("quit", "exit"):
-                break
-            if not text:
-                continue
-
-            CHAT_STATE["user_text"] += "\n" + text  # Remembered for typed_by_student().
-            await client.query(text)
-            async for message in client.receive_response():
-                if isinstance(message, AssistantMessage):
-                    for block in message.content:
-                        if isinstance(block, TextBlock):
-                            print(f"\nagent> {block.text}")
-                        elif isinstance(block, ToolUseBlock):
-                            print(f"[tool] {block.name.removeprefix('mcp__refs__')}")
-
-
 if __name__ == "__main__":
-    # "refs" as the first argument switches to refs mode; otherwise paper mode.
+    # The only command is "refs" (and "refs edit"); anything else shows the usage.
     if len(sys.argv) > 1 and sys.argv[1] == "refs":
         run_refs(sys.argv[2:])
     else:
-        asyncio.run(main())
+        print("Usage: python agent.py refs --input refs.txt [--style apa|chicago|harvard]")
+        print("   or: python agent.py refs edit <id> --field year --value 2020 [--style ...]")
+        sys.exit(1)
