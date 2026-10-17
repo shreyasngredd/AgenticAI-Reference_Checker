@@ -3,8 +3,10 @@
 This file has no Streamlit code. It picks the references that go in the
 export (refchat.in_export: Verified, or Check and confirmed with `accept N`),
 sorts them by first author and year, and builds both files as bytes in
-memory for st.download_button. Nothing is written to disk. The rules are in
-specs/goal-spec.md, section 3 ("Export").
+memory for st.download_button. Nothing is written to disk. The in-text
+citations follow the current style (citations.py). A confirmed provisional
+reference is exported from its closest candidate and marked as such. The
+rules are in specs/goal-spec.md, section 3 ("Export").
 """
 
 import csv
@@ -12,13 +14,17 @@ import io
 import unicodedata
 
 import agent  # Formatting, sort order and search links: one copy of the rules.
+import citations  # The style names for the in-text section.
 import refchat  # Which references are exported, their status and edits.
 
 CSV_COLUMNS = [
     "number", "status", "confirmed", "authors", "year", "title", "journal", "volume",
     "issue", "pages", "DOI", "formatted reference", "parenthetical citation",
-    "narrative citation", "Google Scholar link",
+    "narrative citation", "citation check", "provisional", "match score", "Google Scholar link",
 ]
+# Put in front of a provisional reference in the .txt files, so it can't be
+# mistaken for a checked one.
+PROVISIONAL_PREFIX = "(provisional) "
 EMPTY_EXPORT = "No references to export yet."
 EXPORT_NOTE = ("Verified references, plus Check references you confirmed. "
                "Not found references are never included.")
@@ -47,9 +53,10 @@ def plain(text):
 def exported_refs(state):
     """The exported references as [(number, ref, entry)], in export order.
 
-    number is the reference's number in `list`; entry has the edits applied.
+    number is the reference's number in `list`; entry has the edits applied,
+    or is the provisional reference (refchat.citation_entry).
     """
-    rows = [(n, ref, refchat.merged_entry(ref))
+    rows = [(n, ref, refchat.citation_entry(ref))
             for n, ref in enumerate(state["refs"], start=1) if refchat.in_export(ref)]
     rows.sort(key=lambda row: export_key(row[2]))
     return rows
@@ -73,10 +80,23 @@ def citation_line(number, citation):
     return line
 
 
-def export_txt(state):
-    """references.txt as UTF-8 bytes: the list, then the APA 7 in-text citations."""
+def check_cell(citation):
+    """The `citation check` cell: OK when nothing needs checking, else Check and the reasons."""
+    if citation["reasons"]:
+        return "Check: " + "; ".join(citation["reasons"])
+    return "OK"
+
+
+def txt_reference(entry, style):
+    """One reference of references.txt, marked when it is provisional."""
+    text = plain(agent.shown_text(entry, style))
+    return "[CHECK] " + PROVISIONAL_PREFIX + text if entry.get("provisional") else text
+
+
+def export_txt(state, in_text=True):
+    """references.txt as UTF-8 bytes: the list, then (if in_text) the in-text citations."""
     style = state["style"]
-    lines = [f"Citation Checker beta: reference list ({agent.STYLES[style]})", EXPORT_NOTE, ""]
+    lines = [f"Reference Checker (beta): reference list ({agent.STYLES[style]})", EXPORT_NOTE, ""]
     rows = exported_refs(state)
     if not rows:
         lines.append(EMPTY_EXPORT)
@@ -84,12 +104,13 @@ def export_txt(state):
 
     # 1. The references, one paragraph each, in the current style.
     for _, _, entry in rows:
-        lines += [plain(agent.shown_text(entry, style)), ""]
+        lines += [txt_reference(entry, style), ""]
 
-    # 2. The in-text citations, always APA 7, in the same order.
-    citations = refchat.all_citations(state)
-    lines += ["In-text citations (APA 7)", ""]
-    lines += [citation_line(number, citations[number]) for number, _, _ in rows]
+    # 2. The in-text citations in the current style, in the same order, if ticked.
+    if in_text:
+        found = refchat.all_citations(state)
+        lines += [f"In-text citations ({citations.STYLE_NAMES[style]})", ""]
+        lines += [citation_line(number, found[number]) for number, _, _ in rows]
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
@@ -113,10 +134,10 @@ def export_csv(state):
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(CSV_COLUMNS)
-    citations = refchat.all_citations(state)
+    found = refchat.all_citations(state)
     for number, ref, entry in exported_refs(state):
         status = refchat.ref_status(ref)[0]
-        parenthetical, narrative = citation_cells(citations[number])
+        parenthetical, narrative = citation_cells(found[number])
         writer.writerow([
             number,
             refchat.STATUS_NAMES[status],
@@ -132,6 +153,9 @@ def export_csv(state):
             plain(agent.shown_text(entry, state["style"])),
             parenthetical,
             narrative,
+            check_cell(found[number]),
+            "yes" if entry.get("provisional") else "no",
+            str(entry["match_score"]) if entry.get("provisional") else "not stated",
             agent.search_links(entry)["google_scholar"],
         ])
     return buffer.getvalue().encode("utf-8-sig")

@@ -13,6 +13,7 @@ Run from the project folder:
 import copy
 import io
 import json
+import os
 import sys
 import urllib.error
 import urllib.parse
@@ -91,9 +92,9 @@ class FakeCrossref:
             raise self.failure
         if "query.author" in urllib.parse.parse_qs(parts.query):  # `find`.
             body = {"message": {"items": self.author_items}}
-        elif parts.query:  # /works?query.bibliographic=...: a title search.
+        elif not parts.path.startswith("/works/"):  # /works?query.bibliographic=...: a title search.
             body = {"message": {"items": self.search_items}}
-        else:  # /works/<doi>: a DOI lookup.
+        else:  # /works/<doi> (maybe with ?mailto=...): a DOI lookup.
             doi = urllib.parse.unquote(parts.path[len("/works/"):]).lower()
             if doi not in self.works:
                 raise urllib.error.HTTPError(url, 404, "Not Found", {}, io.BytesIO())
@@ -106,6 +107,11 @@ class ChatTest(unittest.TestCase):
 
     def setUp(self):
         """Start each test with an empty chat and the LeCun record on Crossref."""
+        # No CROSSREF_MAILTO from the shell, so the URLs are exactly as in the spec.
+        environment = mock.patch.dict(os.environ)
+        environment.start()
+        self.addCleanup(environment.stop)
+        os.environ.pop("CROSSREF_MAILTO", None)
         self.state = refchat.new_state()
         self.crossref = FakeCrossref(works={"10.1038/nature14539": LECUN})
         self.title_scores = {}  # {title: similarity} when a test sets scores.
@@ -160,8 +166,10 @@ class Criterion02OneReplyPerLineInOrder(ChatTest):
         blocks = reply.split("\n\n---\n\n")
         self.assertEqual(len(blocks), 3)
         self.assertTrue(blocks[0].startswith("**1.** LeCun"))
-        self.assertTrue(blocks[1].startswith(f"**2.** {MISSING_DOI}"))
-        self.assertTrue(blocks[2].startswith(f"**3.** {TITLE}"))
+        # Nothing found: "No match found" and the line as typed (criterion 129).
+        self.assertTrue(blocks[1].startswith(f"**2.** No match found\n\nYou typed: {MISSING_DOI}"))
+        # A title with a closest candidate (here similarity 0.2) shows a provisional card (criterion 128).
+        self.assertTrue(blocks[2].startswith(f"**3.** {refchat.PROVISIONAL_BADGE}"))
         self.assertEqual(len(self.state["refs"]), 3)
 
 
@@ -300,7 +308,7 @@ class Criterion08List(ChatTest):
         self.send(MISSING_DOI)
         reply = self.send("list")
         self.assertIn("**1.** " + LECUN_APA, reply)
-        self.assertIn(f"**2.** {MISSING_DOI}", reply)
+        self.assertIn(f"**2.** No match found\n\nYou typed: {MISSING_DOI}", reply)
 
 
 class Criterion09Edit(ChatTest):
@@ -414,7 +422,8 @@ class Criterion14UnknownInputGetsShortHelp(ChatTest):
 
     def test_short_help(self):
         """Each message gets the short help message and Crossref is never asked."""
-        for message in ("style mla", "list 2", "help me", "clear all", "edit two year 2015",
+        # ("list 2" was here; it is now a search, criterion 117.)
+        for message in ("style mla", "help me", "clear all", "edit two year 2015",
                         "edit 1 year", "Edit", "hello", "list\nlist"):
             with self.subTest(message=message):
                 reply = self.send(message)

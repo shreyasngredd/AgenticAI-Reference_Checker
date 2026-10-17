@@ -47,7 +47,7 @@ This is a **university assignment**, so clarity matters more than cleverness.
   tools format the reference, set the OK / Check / Not found label and build
   the Google Scholar link in code;
   the model only relays them. It does not touch `refs/`.
-- `app.py`: Streamlit reference chat "Citation Checker beta" (`streamlit run app.py`), spec in
+- `app.py`: Streamlit reference chat "Reference Checker (beta)" (`streamlit run app.py`), spec in
   `specs/goal-spec.md`. It only draws; the logic is in `refchat.py` (no
   Streamlit import, so `parse_command` and `handle_message` are testable). The sidebar shows `refchat.help_text()`, the same text as `help`.
   Paste DOIs or titles; commands `style`, `list`, `edit N field value`,
@@ -61,13 +61,68 @@ This is a **university assignment**, so clarity matters more than cleverness.
   in `st.session_state` only (lost on reload); it never writes `refs/` or any
   file. Tests: `tests/test_refchat.py`, one class per acceptance criterion.
   `accept N` confirms a Check reference (the student's call; it stays Check).
+  Each reference / latest `find` result has an "Add to export" button and a
+  Style dropdown sits top right; they only send `accept N`, `add N` then
+  `accept M`, or `style X` (`refchat.button_for` / `press_button`, history
+  `items`), so the commands still work. Tests: `tests/test_buttons.py` (69–73).
+  The Field dropdown (`fields.py`, reads `config/fields.json`, never writes
+  it) limits `find` and title lookups to a field's ISSNs (Crossref `issn`
+  filter plus `agent.in_journals` in code); DOI lookups ignore it. A broken
+  file falls back to "All fields" with a warning. Tests:
+  `tests/test_fields.py` (36–45). **My list** (`mylist.py`) is separate from
+  the export: "Add to list" beside each reference, latest `find` result or
+  title-search candidate (candidates are looked up by DOI, always `Check`)
+  keeps a snapshot with its status; no duplicates (DOI, else normalised
+  title); always shown in the current style; `my_list.txt` / `my_list.csv`
+  built in memory. **Search my list** (`listsearch.py`, shared with `list
+  FILTER`): case- and accent-insensitive, words ANDed, quoted phrases exact,
+  plus Status filter and Sort; it never changes the list, and the files hold
+  the full list unless "Export only matching" is ticked. Tests:
+  `tests/test_listsearch.py` (107–117). `refchat.render_reply` redraws lookup/`add`/`list` blocks
+  in the current style. Tests: `tests/test_mylist.py` (75–87).
   The export (sidebar `st.download_button`s, built in memory by `export.py`)
   is Verified + confirmed references, sorted by first author and year, as
-  `references.txt` and `references.csv` (UTF-8 with BOM). `cite N` gives APA 7
-  in-text citations (`citations.py`, APA only); missing authors or year,
-  organisation authors (`organisation_authors` from Crossref, or an author
-  with no given name) and duplicate citations are `Check`, never guessed.
+  `references.txt` and `references.csv` (UTF-8 with BOM). `cite N` gives the
+  in-text citations in the current style (`citations.py`, rules in spec 7.7):
+  organisation-only authors (`organisation_authors`) are cited by name; no
+  author uses the shortened title and no year uses n.d. / no date, both
+  `Check`; mixed organisation and person authors build nothing; duplicate
+  citations are `Check`. Never guessed.
   Tests: `tests/test_export.py` (criteria 48–65).
+  Added 2026-10-16 (spec section 3 "In-text citations", "Provisional
+  results", "Live suggestions"; decisions 7.7, 7.8): every card shows its
+  in-text citation in the current style (`citations.py`, APA 7 / Harvard /
+  Chicago author-date; `refchat.card_citation`), drawn as two `st.code`
+  boxes. A Check or Not found title search with a closest candidate shows a
+  **provisional** reference from `title_search["closest"]` (kept only with
+  `resolve_line(..., keep_closest=True)`), labelled with an orange badge and
+  its match score; it keeps its status, is never Verified, and is marked
+  `[CHECK] (provisional)` in the .txt files and `provisional` in the .csv
+  files. No candidate: "No match found", nothing built. DOI links
+  (`doi.org`, `dx.doi.org`, `doi:`, percent-encoded) are found by
+  `agent.find_doi`; `refchat.input_kind` auto-detects DOI vs title; a quoted
+  line is always a title. `suggest.py` gives live Crossref suggestions
+  (4+ characters, cache, 1 request/second, 30 s pause after an error) for
+  `st.text_input(live="500ms")`; choosing one only fills the Look up box.
+  `CROSSREF_MAILTO` (env var, optional) adds Crossref's `mailto`. Tests:
+  `tests/test_citations.py`, `test_provisional.py`, `test_input.py`,
+  `test_suggest.py` (criteria 119–145).
+  Changed 2026-10-16 (decision 7.9, interface only): one input bar at the
+  top. A single line `SURNAME YEAR [topic]` (at most 4 words, year
+  1900-2099) is `find` (`refchat.interpret`); several lines stay DOI/title
+  lookups. Each reply keeps `read_as` (not in the reply text) and offers a
+  "Search as ... instead" button (`switch_for`). `#apa #harvard #chicago`,
+  `#all` and field tags derived from the names in `config/fields.json`
+  (`#psychology`, `#is`, `#information-systems`; `refchat.split_tags`)
+  change the settings shown by the style and field chips (popovers).
+  Cards have only Add to list (`mylist.card_list_button`) and Copy
+  (`refchat.copy_text`). The sidebar has only My list (search, Remove,
+  Clear, my_list.txt/.csv) and a Help expander (`refchat.quick_help`).
+  Removed from the page (code and tests kept): the dropdowns, suggestions,
+  Add to export, the references export downloads, Status/Sort/Export only
+  matching, candidate buttons. Tests: `tests/test_simple_ui.py` (149-163);
+  criterion 161 compares replies with
+  `tests/fixtures/before_simplification.json` (recorded before 7.9).
 - `drafts/references_apa.md`: written on every refs run or edit, always in
   APA 7: each reference followed by its status, warnings and the two links.
 

@@ -104,6 +104,8 @@ AUTHOR_SEARCH_ROWS = 5
 SEARCH_REASONS = {
     "result": "search result, not verified: pick the right one",
     "added": "added from a search; paste its DOI to verify",
+    # A title-search candidate the student put in My list (Streamlit chat).
+    "candidate": "title-search candidate, not verified: check it is the right paper",
 }
 
 # Search links stored with each reference. They are only built, never fetched.
@@ -158,6 +160,20 @@ def error_result(message):
     return {"content": [{"type": "text", "text": message}], "is_error": True}
 
 
+def polite_url(url):
+    """Add mailto=<address> to a Crossref URL when CROSSREF_MAILTO is set.
+
+    Crossref serves requests that say who to contact from its "polite pool".
+    The address is not a key and lives only in the environment. Other hosts,
+    or no CROSSREF_MAILTO, leave the URL exactly as it was.
+    """
+    mailto = os.environ.get("CROSSREF_MAILTO", "").strip()
+    if not mailto or urllib.parse.urlsplit(url).netloc != "api.crossref.org":
+        return url
+    joiner = "&" if "?" in url else "?"
+    return url + joiner + urllib.parse.urlencode({"mailto": mailto})
+
+
 def get_json(url, source, not_found, headers=None):
     """Download JSON from a URL.
 
@@ -166,6 +182,7 @@ def get_json(url, source, not_found, headers=None):
     This is a normal (blocking) function, so the tools run it in a background
     thread to avoid freezing the agent while it waits.
     """
+    url = polite_url(url)
     request = urllib.request.Request(
         url, headers={"User-Agent": "research-companion (university assignment)", **(headers or {})}
     )
@@ -253,12 +270,19 @@ def people(crossref_people):
     return result or "not stated"
 
 
+# Written in front of a DOI in links and references; clean_doi removes them.
+DOI_PREFIXES = (
+    "https://doi.org/", "http://doi.org/", "https://dx.doi.org/", "http://dx.doi.org/",
+    "https://www.doi.org/", "http://www.doi.org/", "doi:",
+)
+
+
 def clean_doi(doi):
-    """Remove spaces and any "https://doi.org/" or "doi:" prefix from a DOI."""
+    """Remove spaces and any "https://doi.org/", "dx.doi.org" or "doi:" prefix from a DOI."""
     doi = doi.strip()
-    for prefix in ("https://doi.org/", "http://doi.org/", "doi:"):
+    for prefix in DOI_PREFIXES:
         if doi.lower().startswith(prefix):
-            doi = doi[len(prefix):]
+            doi = doi[len(prefix):].strip()  # "doi: 10..." has a space after the colon.
     return doi
 
 
@@ -570,8 +594,14 @@ DOI_PATTERN = re.compile(r"10\.\d{4,9}/\S+")
 
 
 def find_doi(line):
-    """Return the DOI in a line of text, or None if there isn't one."""
-    match = DOI_PATTERN.search(line)
+    """Return the DOI in a line of text, or None if there isn't one.
+
+    The DOI can be bare, a link (https://doi.org/..., http://dx.doi.org/...)
+    or follow "doi:"; the pattern finds it wherever it is. A link copied
+    from a browser may be percent-encoded (10.1038%2Fnature14539), so if
+    nothing is found the line is decoded and searched again.
+    """
+    match = DOI_PATTERN.search(line) or DOI_PATTERN.search(urllib.parse.unquote(line))
     if not match:
         return None
     # Drop punctuation that ends the sentence rather than the DOI.
@@ -727,7 +757,25 @@ def apply_overrides(entry, overrides):
 
 # --- Finding a paper by its title (refs mode and chat.py) ---
 
-def search_crossref_title(title):
+def issn_filter(issns):
+    """Crossref filter parts for a list of ISSNs: ["issn:A", "issn:B", ...].
+
+    Crossref treats repeated issn filters as "any of these".
+    """
+    return [f"issn:{issn}" for issn in issns]
+
+
+def in_journals(item, issns):
+    """True if a Crossref record is in one of the journals with these ISSNs.
+
+    Used after an ISSN-filtered search, so a record outside the chosen field
+    can never be shown, even if Crossref ignored the filter.
+    """
+    wanted = {issn.upper() for issn in issns}
+    return any(issn.upper() in wanted for issn in item.get("ISSN", []))
+
+
+def search_crossref_title(title, issns=None):
     """Search Crossref for a title and decide, in code, whether one paper matches.
 
     Crossref always returns its nearest papers, even for a made-up title, so
@@ -739,17 +787,25 @@ def search_crossref_title(title):
          "reasons": why it is "check" or "not_found",
          "candidates": the nearest papers, best first}
     A paper is never picked unless it is clearly the only good match.
+    issns (Streamlit chat's Field setting): only search those journals.
     """
     # 20 results, because the right paper is often not in Crossref's top 5.
-    query = urllib.parse.urlencode({"query.bibliographic": title, "rows": 20})
+    params = {"query.bibliographic": title, "rows": 20}
+    if issns:
+        params["filter"] = ",".join(issn_filter(issns))
+    query = urllib.parse.urlencode(params)
     data, error = get_json(CROSSREF_SEARCH_URL + query, "Crossref", not_found="Crossref found nothing.")
     if error:
         return None, error
+    items = data.get("message", {}).get("items", [])
+    if issns:
+        # Drop anything outside the field before scoring.
+        items = [item for item in items if in_journals(item, issns)]
 
     # 1. Score every result, keeping each DOI once (Crossref sometimes
     #    repeats a record). Records without a DOI are all kept.
     best_by_doi = {}
-    for number, item in enumerate(data.get("message", {}).get("items", [])):
+    for number, item in enumerate(items):
         citation = format_citation(item)
         score = title_similarity(title, citation["title"])
         key = citation["doi"].lower() if stated(citation["doi"]) else f"no-doi-{number}"
@@ -762,6 +818,10 @@ def search_crossref_title(title):
         for score, c in scored[:CANDIDATES_SHOWN]
     ]
     result = {"outcome": "not_found", "citation": None, "reasons": [], "candidates": candidates}
+    # The closest candidate's full record, for the chat's provisional
+    # reference. Only shown, labelled "not verified"; never used as the match.
+    if scored:
+        result["closest"] = scored[0][1]
 
     # 2. No plausible match: nothing scores at least TITLE_WEAK_SCORE.
     best = scored[0][0] if scored else 0
@@ -812,18 +872,20 @@ def candidate_lines(candidates):
     ]
 
 
-def search_crossref_author_year(surname, year, topic=""):
+def search_crossref_author_year(surname, year, topic="", issns=None):
     """Search Crossref for works by `surname` published in `year`.
 
     `topic` (optional words) narrows the results. Crossref decides what
     matches; nothing is re-ranked or filtered here (no author disambiguation).
     Returns (list of citations, None), at most AUTHOR_SEARCH_ROWS of them in
     Crossref's order, or (None, error message) if Crossref couldn't be asked.
+    issns (Streamlit chat's Field setting): only search those journals.
     """
-    # Author and year filter; topic words only when there are any.
+    # Author and year filter, plus the field's journals when there are any.
+    filters = [f"from-pub-date:{year}", f"until-pub-date:{year}"] + issn_filter(issns or [])
     params = {
         "query.author": surname,
-        "filter": f"from-pub-date:{year},until-pub-date:{year}",
+        "filter": ",".join(filters),
         "rows": AUTHOR_SEARCH_ROWS,
     }
     if topic:
@@ -832,12 +894,16 @@ def search_crossref_author_year(surname, year, topic=""):
     data, error = get_json(url, "Crossref", not_found="Crossref found nothing.")
     if error:
         return None, error
+    items = data.get("message", {}).get("items", [])
+    if issns:
+        # Drop anything outside the field (see in_journals).
+        items = [item for item in items if in_journals(item, issns)]
     # Pick the citation fields out of each record, keeping Crossref's order.
-    items = data.get("message", {}).get("items", [])[:AUTHOR_SEARCH_ROWS]
+    items = items[:AUTHOR_SEARCH_ROWS]
     return [format_citation(item) for item in items], None
 
 
-def resolve_line(line, ref_id, cross_check_sources=True):
+def resolve_line(line, ref_id, cross_check_sources=True, issns=None, keep_closest=False):
     """Build a library entry for one line of the input file.
 
     A line with a DOI is looked up by DOI. A line without one is searched on
@@ -848,6 +914,10 @@ def resolve_line(line, ref_id, cross_check_sources=True):
     cross_check_sources=False skips OpenAlex and Semantic Scholar, so only
     Crossref is contacted (the Streamlit chat). If Crossref could not be
     reached at all (not a 404), the entry gets "lookup_unavailable": True.
+    issns limits a title search to those journals; a DOI lookup ignores it,
+    because a DOI is exact. keep_closest=True (the Streamlit chat) also keeps
+    the closest candidate's record of an unsure title search, for its
+    provisional reference; refs mode leaves it out of library.json.
     """
     entry = {"id": ref_id, "status": "auto", "input": line}
     empty = {field: "not stated" for field in CITATION_FIELDS}
@@ -855,7 +925,7 @@ def resolve_line(line, ref_id, cross_check_sources=True):
 
     doi = find_doi(line)
     if not doi:
-        search, error = search_crossref_title(line)
+        search, error = search_crossref_title(line, issns)
         if error:
             entry.update(empty)
             entry["lookup_error"] = error
@@ -867,6 +937,10 @@ def resolve_line(line, ref_id, cross_check_sources=True):
             "reasons": search["reasons"],
             "candidates": search["candidates"],
         }
+        if keep_closest and search["outcome"] != "match" and search.get("closest"):
+            # Kept for the provisional reference (Streamlit chat), outside the
+            # citation fields: the entry's own fields stay "not stated".
+            entry["title_search"]["closest"] = search["closest"]
         if search["outcome"] != "match":
             # "check" or "not_found": never fill in a paper we aren't sure of.
             entry.update(empty)
@@ -1419,7 +1493,9 @@ def confident_match(entry):
     in it. A line with only a DOI can't be checked, so it counts as a match.
     """
     # Remove the DOI (and any doi.org link or "doi:" before it) from the line.
-    text = re.sub(r"(https?://)?(dx\.)?doi\.org/|doi:", "", entry["input"], flags=re.IGNORECASE)
+    # A link may be percent-encoded (10.1038%2Fnature14539), so decode it first.
+    text = urllib.parse.unquote(entry["input"])
+    text = re.sub(r"(https?://)?(www\.|dx\.)?doi\.org/|doi:", "", text, flags=re.IGNORECASE)
     typed = words(DOI_PATTERN.sub("", text))
     if len(typed) < 3:
         return True

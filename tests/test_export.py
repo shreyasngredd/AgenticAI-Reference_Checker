@@ -26,7 +26,7 @@ from test_refchat import LECUN, MISSING_DOI, ChatTest, FakeCrossref  # noqa: E40
 COLUMNS = [
     "number", "status", "confirmed", "authors", "year", "title", "journal", "volume",
     "issue", "pages", "DOI", "formatted reference", "parenthetical citation",
-    "narrative citation", "Google Scholar link",
+    "narrative citation", "citation check", "provisional", "match score", "Google Scholar link",
 ]
 LECUN_DOI = "10.1038/nature14539"
 
@@ -208,7 +208,7 @@ class Criterion53TxtLayout(ExportTest):
         """Section 3's layout, with N the number in `list`."""
         self.paste(YOO, DAVIS)
         lines = self.txt().splitlines()
-        self.assertEqual(lines[0], "Citation Checker beta: reference list (APA 7th)")
+        self.assertEqual(lines[0], "Reference Checker (beta): reference list (APA 7th)")
         self.assertEqual(lines[1], "Verified references, plus Check references you confirmed. "
                                    "Not found references are never included.")
         section = lines.index("In-text citations (APA 7)")
@@ -220,10 +220,28 @@ class Criterion53TxtLayout(ExportTest):
         ])
 
     def test_check_citation_line(self):
-        """A confirmed reference with no year gets a Check line with the reason."""
+        """A confirmed reference with no year: built with n.d., then Check and the reason."""
         self.paste(NO_YEAR)
         self.send("accept 1")
-        self.assertIn("Reference 1: Check: year not stated", self.txt())
+        self.assertIn("Reference 1: parenthetical (Lovelace, n.d.); narrative Lovelace (n.d.). "
+                      "Check: Crossref gives no year", self.txt())
+
+    def test_follows_style(self):
+        """With Harvard, the section is headed and built in Harvard (changed 2026-10-16)."""
+        self.paste(YOO)
+        self.send("style harvard")
+        lines = self.txt().splitlines()
+        section = lines.index("In-text citations (Harvard)")
+        self.assertEqual(lines[section + 2],
+                         "Reference 1: parenthetical (Yoo, Henfridsson and Lyytinen, 2010); "
+                         "narrative Yoo, Henfridsson and Lyytinen (2010)")
+
+    def test_option_off(self):
+        """Unticked: the references only, no in-text section."""
+        self.paste(DAVIS)
+        text = export.export_txt(self.state, in_text=False).decode("utf-8")
+        self.assertIn("Davis, F. (1989).", text)
+        self.assertNotIn("In-text citations", text)
 
 
 class Criterion54CsvColumns(ExportTest):
@@ -249,6 +267,8 @@ class Criterion54CsvColumns(ExportTest):
         self.assertNotIn("*", row["formatted reference"])
         self.assertEqual(row["parenthetical citation"], "(LeCun et al., 2015)")
         self.assertEqual(row["narrative citation"], "LeCun et al. (2015)")
+        self.assertEqual(row["citation check"], "OK")
+        self.assertEqual((row["provisional"], row["match score"]), ("no", "not stated"))
         self.assertEqual(row["Google Scholar link"], "https://scholar.google.com/scholar?q=Deep+learning+LeCun")
 
     def test_missing_field_is_not_stated(self):
@@ -332,37 +352,49 @@ class Criterion58ExportInMemory(ExportTest):
 # --- cite N (criteria 59-63) ---
 
 class Criterion59CiteForms(ExportTest):
-    """59. One, two, and three or more authors, in any current style."""
+    """59. One, two, and three or more authors, in the current style (changed 2026-10-16)."""
 
     def test_forms(self):
-        """Section 3's table, exactly."""
+        """The 7.7 table, exactly, for each style."""
         self.paste(DAVIS, DAVIS_BAGOZZI, YOO)
         expected = {
-            1: ("(Davis, 1989)", "Davis (1989)"),
-            2: ("(Davis & Bagozzi, 1989)", "Davis and Bagozzi (1989)"),
-            3: ("(Yoo et al., 2010)", "Yoo et al. (2010)"),
+            ("apa", "APA 7"): {
+                1: ("(Davis, 1989)", "Davis (1989)"),
+                2: ("(Davis & Bagozzi, 1989)", "Davis and Bagozzi (1989)"),
+                3: ("(Yoo et al., 2010)", "Yoo et al. (2010)"),
+            },
+            ("harvard", "Harvard"): {
+                1: ("(Davis, 1989)", "Davis (1989)"),
+                2: ("(Davis and Bagozzi, 1989)", "Davis and Bagozzi (1989)"),
+                3: ("(Yoo, Henfridsson and Lyytinen, 2010)", "Yoo, Henfridsson and Lyytinen (2010)"),
+            },
+            ("chicago", "Chicago author-date"): {
+                1: ("(Davis 1989)", "Davis (1989)"),
+                2: ("(Davis and Bagozzi 1989)", "Davis and Bagozzi (1989)"),
+                3: ("(Yoo, Henfridsson, and Lyytinen 2010)", "Yoo, Henfridsson, and Lyytinen (2010)"),
+            },
         }
-        for style in ("apa", "chicago", "harvard"):
+        for (style, name), rows in expected.items():
             self.send(f"style {style}")
-            for number, (parenthetical, narrative) in expected.items():
+            for number, (parenthetical, narrative) in rows.items():
                 with self.subTest(style=style, number=number):
                     reply = self.send(f"cite {number}")
-                    self.assertTrue(reply.startswith(f"**APA 7 in-text citations for reference {number}**"))
+                    self.assertTrue(reply.startswith(f"**{name} in-text citations for reference {number}**"))
                     self.assertIn(f"Parenthetical: {parenthetical}", reply)
                     self.assertIn(f"Narrative: {narrative}", reply)
                     self.assertIn("Citation: **OK**", reply)
 
 
 class Criterion60CiteMissingAuthorsOrYear(ExportTest):
-    """60. No authors or no year: no citation, Check with the reason."""
+    """60. No year: n.d. and Check; no authors and no title: no citation (changed 2026-10-16)."""
 
     def test_no_year(self):
-        """Year not stated."""
+        """Year not stated: built with n.d., Check with the reason."""
         self.paste(NO_YEAR)
         reply = self.send("cite 1")
         self.assertIn("Citation: **Check**", reply)
-        self.assertIn("year not stated", reply)
-        self.assertNotIn("Parenthetical:", reply)
+        self.assertIn("Crossref gives no year", reply)
+        self.assertIn("Parenthetical: (Lovelace, n.d.)", reply)
 
     def test_no_authors(self):
         """A Not found reference has no authors."""
@@ -374,31 +406,44 @@ class Criterion60CiteMissingAuthorsOrYear(ExportTest):
         self.assertIn("Reference status: **Not found**", reply)
 
     def test_authors_cleared_by_edit(self):
-        """Clearing the authors with `edit` gives the same Check."""
+        """Clearing the authors with `edit`: the shortened title, Check."""
         self.paste(DAVIS)
         self.send("edit 1 authors not stated")
-        self.assertIn("authors not stated", self.send("cite 1"))
+        reply = self.send("cite 1")
+        self.assertIn('Parenthetical: ("Perceived usefulness," 1989)', reply)
+        self.assertIn("shortened title chosen by code: check it", reply)
 
 
 class Criterion61CiteOrganisation(ExportTest):
-    """61. An organisation author: no citation, Check naming it."""
+    """61. Organisation authors are cited by name (changed 2026-10-16)."""
 
     def test_crossref_organisation(self):
-        """Crossref lists the WHO by name."""
+        """Crossref lists only the WHO, by name: built, OK."""
         self.paste(ORGANISATION)
         reply = self.send("cite 1")
+        self.assertIn("Parenthetical: (World Health Organization, 2020)", reply)
+        self.assertIn("Narrative: World Health Organization (2020)", reply)
+        self.assertIn("Citation: **OK**", reply)
+
+    def test_organisation_and_people(self):
+        """Organisations and people together: the order is lost, so no citation."""
+        mixed = article("10.1234/mixed", "Joint report", [("Ada", "Lovelace")], 2020)
+        mixed["author"].append({"name": "World Health Organization"})
+        self.crossref.works[mixed["DOI"]] = mixed
+        self.paste(mixed)
+        reply = self.send("cite 1")
         self.assertIn("Citation: **Check**", reply)
-        self.assertIn("World Health Organization", reply)
+        self.assertIn("organisation and person authors", reply)
         self.assertNotIn("Parenthetical:", reply)
 
     def test_edited_organisation(self):
-        """An author typed with no given name may be an organisation."""
+        """An author typed with no given name: used as a name, Check, naming it."""
         self.paste(DAVIS)
         self.send("edit 1 authors American Psychological Association")
         reply = self.send("cite 1")
+        self.assertIn("Parenthetical: (American Psychological Association, 1989)", reply)
         self.assertIn("Citation: **Check**", reply)
-        self.assertIn("American Psychological Association", reply)
-        self.assertNotIn("Parenthetical:", reply)
+        self.assertIn("no given name", reply)
 
 
 class Criterion62SameCitation(ExportTest):
