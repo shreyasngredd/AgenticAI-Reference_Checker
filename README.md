@@ -4,7 +4,7 @@ A browser chatbot that turns a DOI, DOI link, paper title, or author and year
 into a correctly formatted reference and in-text citation. It defaults to
 APA 7th edition, with Chicago and Harvard available.
 
-**Live app:** [URL, or link to the demo video]
+**Live app:** https://reference-checker-beta.onrender.com/
 
 ## Why this exists
 
